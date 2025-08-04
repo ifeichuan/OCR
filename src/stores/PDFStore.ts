@@ -5,7 +5,7 @@ pdfjs.GlobalWorkerOptions.workerSrc =
   'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.4.54/build/pdf.worker.mjs'
 export const usePDFStore = defineStore('PDF', () => {
   const PDFFile = ref<File>()
-  let document: pdfjs.PDFDocumentProxy | undefined
+  let PDFDocument: pdfjs.PDFDocumentProxy | undefined
   const currentPage = ref(1)
   const totalPages = ref(0)
   const scale = ref(1.5)
@@ -26,9 +26,9 @@ export const usePDFStore = defineStore('PDF', () => {
     const arrayBuffer = await PDFFile.value.arrayBuffer()
     await pdfjs.getDocument({ data: arrayBuffer }).promise.then((doc) => {
       console.log('PDF Loaded')
-      document = doc
+      PDFDocument = doc
     })
-    totalPages.value = document?.numPages || 0
+    totalPages.value = PDFDocument?.numPages || 0
   }
   function setCanvasRef(e: unknown, pageNum: number) {
     if (e) canvasRefs.set(pageNum, e as HTMLCanvasElement)
@@ -44,9 +44,9 @@ export const usePDFStore = defineStore('PDF', () => {
     else visiblePages.delete(pageNum)
   }
   async function renderPage(pageNumber: number, canvas: HTMLCanvasElement) {
-    if (!document) return
+    if (!PDFDocument) return
     try {
-      const page = await document.getPage(pageNumber)
+      const page = await PDFDocument.getPage(pageNumber)
       const viewport = page.getViewport({ scale: scale.value })
       canvas.width = viewport.width
       canvas.height = viewport.height
@@ -90,7 +90,7 @@ export const usePDFStore = defineStore('PDF', () => {
     annotations,
     canvasRefs,
     overlayCanvasRefs,
-    document,
+    PDFDocument,
     loadPDF,
     setCanvasRef,
     renderPage,
