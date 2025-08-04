@@ -1,51 +1,103 @@
 <template>
-  <div v-if="PDFStore.annotations.length > 0" class="mt-4">
-    <!-- 编组模式切换和导出功能 -->
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-sm font-bold">标注列表</h3>
-      <div class="flex gap-2">
-        <ElButton size="small" type="success" @click="exportToQuestionBank"> 导出题库 </ElButton>
-        <ElButton
+  <div v-if="PDFStore.annotations.length > 0" class="annotation-list-container">
+    <!-- 标题和操作区域 -->
+    <div class="list-header">
+      <div class="flex items-center gap-2 mb-3">
+        <el-icon color="#409EFF" size="18"><Collection /></el-icon>
+        <h3 class="text-base font-semibold text-gray-800">标注列表</h3>
+        <el-badge :value="PDFStore.annotations.length" class="ml-2" type="primary" />
+      </div>
+
+      <div class="flex flex-col gap-2 mb-4">
+        <el-button size="small" type="success" @click="exportToQuestionBank" class="action-btn">
+          <el-icon class="mr-1"><Download /></el-icon>
+          导出题库
+        </el-button>
+        <el-button
           size="small"
           :type="PDFStore.isGroupMode ? 'primary' : 'default'"
           @click="toggleGroupMode"
+          class="action-btn"
         >
+          <el-icon class="mr-1">
+            <component :is="PDFStore.isGroupMode ? 'Close' : 'Connection'" />
+          </el-icon>
           {{ PDFStore.isGroupMode ? '退出编组' : '编组模式' }}
-        </ElButton>
+        </el-button>
       </div>
     </div>
 
-    <!-- 编组模式下的操作按钮 -->
-    <div v-if="PDFStore.isGroupMode && PDFStore.selectedAnnotations.size > 0" class="mb-3">
-      <div class="flex gap-2">
-        <ElInput
-          v-model="groupName"
-          placeholder="输入组名，如：题目1"
-          size="small"
-          class="flex-1"
-        />
-        <ElButton size="small" type="primary" @click="createNewGroup"> 创建组 </ElButton>
-        <ElButton size="small" @click="clearSelection"> 清除选择 </ElButton>
-      </div>
-      <div class="text-xs text-gray-500 mt-1">
-        已选择 {{ PDFStore.selectedAnnotations.size }} 个标注
+    <!-- 编组模式下的操作区域 -->
+    <div
+      v-if="PDFStore.isGroupMode && PDFStore.selectedAnnotations.size > 0"
+      class="group-mode-panel"
+    >
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+        <div class="flex items-center gap-2 mb-2">
+          <el-icon color="#409EFF"><Edit /></el-icon>
+          <span class="text-sm font-medium text-blue-800">创建新组</span>
+        </div>
+
+        <div class="flex gap-2 mb-2">
+          <el-input
+            v-model="groupName"
+            placeholder="输入组名，如：题目1"
+            size="small"
+            class="flex-1"
+          >
+            <template #prefix>
+              <el-icon><Folder /></el-icon>
+            </template>
+          </el-input>
+          <el-button size="small" type="primary" @click="createNewGroup" class="action-btn">
+            <el-icon class="mr-1"><Plus /></el-icon>
+            创建组
+          </el-button>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <div class="text-xs text-blue-600 flex items-center gap-1">
+            <el-icon size="12"><Select /></el-icon>
+            已选择 {{ PDFStore.selectedAnnotations.size }} 个标注
+          </div>
+          <el-button size="small" @click="clearSelection" class="action-btn">
+            <el-icon class="mr-1"><Close /></el-icon>
+            清除选择
+          </el-button>
+        </div>
       </div>
     </div>
 
     <!-- 分组显示标注 -->
-    <div class="space-y-3">
+    <div class="annotations-container space-y-4">
       <!-- 显示分组 -->
-      <div v-for="group in PDFStore.annotationGroups" :key="group.id" class="border rounded-lg p-2">
-        <div class="flex items-center justify-between mb-2">
-          <div class="flex items-center gap-2">
-            <div class="w-3 h-3 rounded-full" :style="{ backgroundColor: group.color }"></div>
-            <span class="text-sm font-medium">{{ group.name }}</span>
-            <span class="text-xs text-gray-500">({{ group.annotationIds.length }}个)</span>
+      <div v-for="group in PDFStore.annotationGroups" :key="group.id" class="group-card">
+        <div class="group-header">
+          <div class="flex items-center gap-3">
+            <div
+              class="w-4 h-4 rounded-full shadow-sm border-2 border-white"
+              :style="{ backgroundColor: group.color }"
+            ></div>
+            <div class="flex-1">
+              <span class="text-sm font-semibold text-gray-800">{{ group.name }}</span>
+              <el-tag size="small" type="info" class="ml-2">
+                {{ group.annotationIds.length }}个标注
+              </el-tag>
+            </div>
           </div>
-          <ElButton size="small" type="danger" @click="deleteGroup(group.id)"> 删除组 </ElButton>
+          <el-button
+            size="small"
+            type="danger"
+            plain
+            @click="deleteGroup(group.id)"
+            class="delete-group-btn"
+          >
+            <el-icon class="mr-1"><Delete /></el-icon>
+            删除组
+          </el-button>
         </div>
 
-        <div class="space-y-1 ml-5">
+        <div class="group-content">
           <AnnotationItem
             v-for="annotation in getGroupAnnotations(group.id)"
             :key="annotation.id"
@@ -68,9 +120,18 @@
       </div>
 
       <!-- 显示未分组的标注 -->
-      <div v-if="ungroupedAnnotations.length > 0">
-        <h4 class="text-sm font-medium text-gray-600 mb-2">未分组标注</h4>
-        <div class="space-y-1">
+      <div v-if="ungroupedAnnotations.length > 0" class="ungrouped-section">
+        <div class="ungrouped-header">
+          <div class="flex items-center gap-2 mb-3">
+            <el-icon color="#909399" size="16"><Files /></el-icon>
+            <h4 class="text-sm font-medium text-gray-600">未分组标注</h4>
+            <el-tag size="small" type="info" effect="plain">
+              {{ ungroupedAnnotations.length }}个
+            </el-tag>
+          </div>
+        </div>
+
+        <div class="ungrouped-content space-y-2">
           <AnnotationItem
             v-for="annotation in ungroupedAnnotations"
             :key="annotation.id"
@@ -96,7 +157,19 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ElButton, ElInput, ElMessage, ElMessageBox } from 'element-plus'
+import { ElButton, ElInput, ElMessage, ElMessageBox, ElIcon, ElBadge, ElTag } from 'element-plus'
+import {
+  Collection,
+  Download,
+  Connection,
+  Close,
+  Edit,
+  Folder,
+  Plus,
+  Select,
+  Delete,
+  Files,
+} from '@element-plus/icons-vue'
 import { PDFStore } from '@/main'
 import type { Annotation, AnnotationType } from '@/stores/PDFStore'
 import AnnotationItem from '@/components/AnnotationItem.vue'
@@ -467,7 +540,7 @@ const exportToQuestionBank = () => {
 
     const link = document.createElement('a')
     link.href = url
-    link.download = `PDF标注题库_${new Date().toLocaleDateString().replace(/\//g, '-')}.json`
+    link.download = `PDF标注题库_${PDFStore.PDFFile?.name}.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -482,3 +555,155 @@ const exportToQuestionBank = () => {
   }
 }
 </script>
+
+<style scoped>
+.annotation-list-container {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e9ecef;
+}
+
+.list-header {
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+
+.action-btn {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.group-mode-panel {
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.group-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #dee2e6;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.group-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #409eff;
+}
+
+.group-header {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  padding: 12px 16px;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.group-content {
+  padding: 12px;
+  space-y: 8px;
+}
+
+.delete-group-btn {
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.delete-group-btn:hover {
+  transform: scale(1.05);
+}
+
+.ungrouped-section {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px dashed #d1d5db;
+  border-radius: 12px;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.ungrouped-section:hover {
+  border-color: #409eff;
+  background: linear-gradient(135deg, #f0f8ff 0%, #e6f3ff 100%);
+}
+
+.ungrouped-header {
+  border-bottom: 1px dashed #d1d5db;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.ungrouped-content {
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .annotation-list-container {
+    padding: 12px;
+  }
+
+  .list-header {
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+
+  .group-card {
+    border-radius: 8px;
+  }
+
+  .group-header {
+    padding: 10px 12px;
+  }
+
+  .group-content {
+    padding: 10px;
+  }
+}
+
+/* 保持亮色主题，移除深色模式 */
+.annotation-list-container,
+.group-card,
+.group-header,
+.ungrouped-section {
+  /* 确保所有元素都使用亮色背景 */
+  color: #374151;
+}
+
+.group-header {
+  border-bottom-color: #e9ecef;
+}
+
+.ungrouped-header {
+  border-bottom-color: #d1d5db;
+}
+</style>

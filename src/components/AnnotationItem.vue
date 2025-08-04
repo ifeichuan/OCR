@@ -1,32 +1,73 @@
 <template>
   <div
-    class="border rounded p-2 cursor-pointer hover:bg-gray-50 relative"
+    class="annotation-item-card"
     :class="{
-      'bg-blue-100': isSelected,
-      'bg-green-100': isMultiSelected,
-      'bg-yellow-100': !isSelected && !isMultiSelected,
+      selected: isSelected,
+      'multi-selected': isMultiSelected,
+      default: !isSelected && !isMultiSelected,
     }"
     @click="$emit('click', annotation)"
   >
-    <div class="flex items-center justify-between mb-1">
-      <div class="text-xs text-gray-600">第{{ annotation.pageNumber }}页</div>
-      <ElSelect
+    <!-- 标注头部信息 -->
+    <div class="annotation-header">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
+        <el-icon size="14" color="#409EFF"><Document /></el-icon>
+        <span class="page-info whitespace-nowrap">第{{ annotation.pageNumber }}页</span>
+        <el-tag
+          :type="getTypeTagType(annotation.type)"
+          size="small"
+          effect="light"
+          class="type-tag flex-shrink-0"
+        >
+          {{ annotation.type }}
+        </el-tag>
+      </div>
+
+      <el-select
         :model-value="annotation.type"
         size="small"
-        class="w-32"
+        class="type-selector flex-shrink-0"
         @change="(value: string) => updateAnnotationType(value as AnnotationType)"
       >
-        <ElOption label="问题" value="问题" />
-        <ElOption label="问题的图片" value="问题的图片" />
-        <ElOption label="选项" value="选项" />
-        <ElOption label="选项的图片" value="选项的图片" />
-        <ElOption label="答案" value="答案" />
-        <ElOption label="答案的图片" value="答案的图片" />
-        <ElOption label="其他" value="其他" />
-        <ElOption label="其他的图片" value="其他的图片" />
-        <ElOption label="解析" value="解析" />
-        <ElOption label="解析的图片" value="解析的图片" />
-      </ElSelect>
+        <el-option-group label="问题相关">
+          <el-option label="问题" value="问题">
+            <el-icon class="mr-2"><QuestionFilled /></el-icon>问题
+          </el-option>
+          <el-option label="问题的图片" value="问题的图片">
+            <el-icon class="mr-2"><Picture /></el-icon>问题的图片
+          </el-option>
+        </el-option-group>
+        <el-option-group label="选项相关">
+          <el-option label="选项" value="选项">
+            <el-icon class="mr-2"><List /></el-icon>选项
+          </el-option>
+          <el-option label="选项的图片" value="选项的图片">
+            <el-icon class="mr-2"><Picture /></el-icon>选项的图片
+          </el-option>
+        </el-option-group>
+        <el-option-group label="答案相关">
+          <el-option label="答案" value="答案">
+            <el-icon class="mr-2"><Check /></el-icon>答案
+          </el-option>
+          <el-option label="答案的图片" value="答案的图片">
+            <el-icon class="mr-2"><Picture /></el-icon>答案的图片
+          </el-option>
+        </el-option-group>
+        <el-option-group label="其他内容">
+          <el-option label="解析" value="解析">
+            <el-icon class="mr-2"><Reading /></el-icon>解析
+          </el-option>
+          <el-option label="解析的图片" value="解析的图片">
+            <el-icon class="mr-2"><Picture /></el-icon>解析的图片
+          </el-option>
+          <el-option label="其他" value="其他">
+            <el-icon class="mr-2"><More /></el-icon>其他
+          </el-option>
+          <el-option label="其他的图片" value="其他的图片">
+            <el-icon class="mr-2"><Picture /></el-icon>其他的图片
+          </el-option>
+        </el-option-group>
+      </el-select>
     </div>
 
     <div v-if="annotation.thumbnail" class="mb-2">
@@ -140,7 +181,16 @@
 
 <script setup lang="ts">
 import { ref, nextTick, computed, onMounted } from 'vue'
-import { ElButton, ElInput, ElSelect, ElOption } from 'element-plus'
+import { ElButton, ElInput, ElSelect, ElOption, ElOptionGroup, ElTag, ElIcon } from 'element-plus'
+import {
+  Document,
+  QuestionFilled,
+  Picture,
+  List,
+  Check,
+  Reading,
+  More,
+} from '@element-plus/icons-vue'
 import type { Annotation, AnnotationType } from '@/stores/PDFStore'
 import { PDFStore } from '@/main'
 import { callOCR } from '@/stores/AIOCR'
@@ -229,10 +279,292 @@ const getParentAnnotation = () => {
   if (!props.annotation.parentId) return null
   return PDFStore.annotations.find((a) => a.id === props.annotation.parentId)
 }
+
+// 根据标注类型获取标签类型
+const getTypeTagType = (type: AnnotationType) => {
+  if (type.includes('问题')) return 'primary'
+  if (type.includes('选项')) return 'success'
+  if (type.includes('答案')) return 'warning'
+  if (type.includes('解析')) return 'info'
+  return 'info'
+}
 </script>
 
 <style scoped>
+.annotation-item-card {
+  border: 2px solid #e4e7ed;
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.annotation-item-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #409eff, #67c23a, #e6a23c, #f56c6c);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.annotation-item-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  border-color: #409eff;
+}
+
+.annotation-item-card:hover::before {
+  opacity: 1;
+}
+
+.annotation-item-card.selected {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+  border-color: #2196f3;
+  box-shadow: 0 4px 20px rgba(33, 150, 243, 0.3);
+}
+
+.annotation-item-card.multi-selected {
+  background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%);
+  border-color: #4caf50;
+  box-shadow: 0 4px 20px rgba(76, 175, 80, 0.3);
+}
+
+.annotation-item-card.default {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.annotation-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e9ecef;
+  gap: 8px;
+}
+
+.page-info {
+  font-size: 12px;
+  color: #6c757d;
+  font-weight: 500;
+  background: #f8f9fa;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid #dee2e6;
+  min-width: fit-content;
+}
+
+.type-tag {
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.type-selector {
+  min-width: 120px;
+  max-width: 140px;
+}
+
+:deep(.type-selector .el-input__wrapper) {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+:deep(.type-selector .el-input__wrapper:hover) {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 缩略图样式 */
+.annotation-item-card img {
+  border-radius: 6px;
+  border: 2px solid #e9ecef;
+  transition: all 0.2s ease;
+}
+
+.annotation-item-card img:hover {
+  border-color: #409eff;
+  transform: scale(1.05);
+}
+
+/* 文本编辑区域样式 */
+:deep(.el-textarea) {
+  border-radius: 8px;
+}
+
+:deep(.el-textarea__inner) {
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+:deep(.el-textarea__inner:focus) {
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
 .cursor-pointer :deep(.el-textarea__inner) {
   cursor: pointer;
+  background: #f8f9fa;
+}
+
+.cursor-pointer :deep(.el-textarea__inner:hover) {
+  background: #e9ecef;
+  border-color: #409eff;
+}
+
+/* 关联标注区域样式 */
+.annotation-item-card .border-t {
+  border-color: #e9ecef !important;
+  margin-top: 12px;
+  padding-top: 12px;
+}
+
+.annotation-item-card .bg-gray-50 {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  border-radius: 6px;
+  border: 1px solid #dee2e6;
+  transition: all 0.2s ease;
+}
+
+.annotation-item-card .bg-gray-50:hover {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important;
+  border-color: #409eff;
+}
+
+/* 操作按钮区域样式 */
+.annotation-item-card .absolute {
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.annotation-item-card:hover .absolute {
+  opacity: 1;
+}
+
+:deep(.el-button--small) {
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  transition: all 0.2s ease !important;
+}
+
+:deep(.el-button--small:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 时间戳样式 */
+.annotation-item-card .text-xs.text-gray-500 {
+  color: #8e9aaf !important;
+  font-weight: 400;
+  background: #f8f9fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+/* 选择器下拉样式优化 */
+:deep(.el-select-dropdown) {
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+:deep(.el-option-group__title) {
+  font-weight: 600 !important;
+  color: #409eff !important;
+  padding: 8px 12px !important;
+}
+
+:deep(.el-option) {
+  border-radius: 6px !important;
+  margin: 2px 8px !important;
+  transition: all 0.2s ease !important;
+}
+
+:deep(.el-option:hover) {
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%) !important;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .annotation-item-card {
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .annotation-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .type-selector {
+    min-width: 120px;
+    width: 100%;
+  }
+
+  .annotation-item-card .absolute {
+    position: static;
+    opacity: 1;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+}
+
+/* 动画效果 */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.annotation-item-card {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* 保持亮色主题，移除深色模式支持 */
+.annotation-item-card {
+  /* 确保始终使用亮色背景 */
+  color: #374151;
+}
+
+.page-info {
+  /* 确保页面信息始终使用亮色背景 */
+  background: #f8f9fa !important;
+  color: #6c757d !important;
+  border-color: #dee2e6 !important;
+}
+
+.cursor-pointer :deep(.el-textarea__inner) {
+  /* 确保文本区域始终使用亮色背景 */
+  background: #f8f9fa !important;
+  color: #374151 !important;
+}
+
+/* 关联标注区域确保亮色背景 */
+.annotation-item-card .bg-gray-50 {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+  color: #374151 !important;
+}
+
+/* 时间戳区域确保亮色背景 */
+.annotation-item-card .text-xs.text-gray-500 {
+  background: #f8f9fa !important;
+  color: #8e9aaf !important;
 }
 </style>
