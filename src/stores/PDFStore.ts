@@ -97,7 +97,12 @@ export const usePDFStore = defineStore('PDF', () => {
   watch(scale, () => {
     visiblePages.forEach((pageNum) => {
       const canvas = canvasRefs.get(pageNum)
-      if (canvas) renderPage(pageNum, canvas)
+      if (canvas) {
+        renderPage(pageNum, canvas).then(() => {
+          // 页面渲染完成后重新绘制标注
+          drawPageAnnotations(pageNum)
+        })
+      }
     })
   })
 
@@ -281,13 +286,10 @@ export const usePDFStore = defineStore('PDF', () => {
     // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // 绘制该页面的已保存标注
+    // 绘制该页面的已保存标注 - 使用相对坐标确保缩放时正确显示
     const pageAnnotations = annotations.value.filter((a) => a.pageNumber === pageNumber)
     pageAnnotations.forEach((annotation) => {
-      const canvasRect = annotation.relativeRectangle
-        ? relativeToCanvas(annotation.relativeRectangle, pageNumber)
-        : annotation.rectangle
-
+      const canvasRect = relativeToCanvas(annotation.relativeRectangle, pageNumber)
       drawRectangle(
         ctx,
         canvasRect,
@@ -303,7 +305,6 @@ export const usePDFStore = defineStore('PDF', () => {
       canvasState.value.isDrawing &&
       pendingAnnotation.value?.pageInfo.pageNumber === pageNumber
     ) {
-      console.log('🎨 绘制拖动中的矩形:', canvasState.value.currentRect)
       drawRectangle(ctx, canvasState.value.currentRect, false, true)
     }
 
@@ -313,7 +314,6 @@ export const usePDFStore = defineStore('PDF', () => {
       pendingAnnotation.value.pageInfo.pageNumber === pageNumber &&
       !canvasState.value.isDrawing
     ) {
-      console.log('🎨 绘制等待确认的矩形:', pendingAnnotation.value.rect)
       drawRectangle(ctx, pendingAnnotation.value.rect, false, true)
     }
   }
