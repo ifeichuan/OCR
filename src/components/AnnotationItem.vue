@@ -81,10 +81,10 @@
         :model-value="annotation.label"
         type="textarea"
         :rows="2"
-        placeholder="点击编辑内容..."
+        placeholder="点击查看详情..."
         readonly
         class="cursor-pointer"
-        @click.stop="startEditing"
+        @click.stop="showModal"
       />
       <ElInput
         v-else
@@ -100,8 +100,182 @@
       <div v-if="isEditing" class="text-xs text-gray-500 mt-1">Ctrl+Enter 保存，Esc 取消</div>
     </div>
 
+    <!-- 标注详情弹窗 -->
+    <ElDialog
+      v-model="modalVisible"
+      :title="`标注详情 - 第${annotation.pageNumber}页`"
+      width="80%"
+      :before-close="handleModalClose"
+      append-to-body
+    >
+      <div class="modal-content">
+        <!-- 标注类型和页面信息 -->
+        <div class="modal-header mb-4">
+          <div class="flex items-center gap-3 mb-3">
+            <el-icon size="18" color="#409EFF"><Document /></el-icon>
+            <span class="text-lg font-semibold">第{{ annotation.pageNumber }}页</span>
+            <el-tag :type="getTypeTagType(annotation.type)" size="default" effect="light">
+              {{ annotation.type }}
+            </el-tag>
+          </div>
+
+          <!-- 类型选择器 -->
+          <el-select
+            :model-value="annotation.type"
+            size="default"
+            class="w-64"
+            @change="(value: string) => updateAnnotationType(value as AnnotationType)"
+          >
+            <el-option-group label="问题相关">
+              <el-option label="问题" value="问题">
+                <el-icon class="mr-2"><QuestionFilled /></el-icon>问题
+              </el-option>
+              <el-option label="问题的图片" value="问题的图片">
+                <el-icon class="mr-2"><Picture /></el-icon>问题的图片
+              </el-option>
+            </el-option-group>
+            <el-option-group label="选项相关">
+              <el-option label="选项" value="选项">
+                <el-icon class="mr-2"><List /></el-icon>选项
+              </el-option>
+              <el-option label="选项的图片" value="选项的图片">
+                <el-icon class="mr-2"><Picture /></el-icon>选项的图片
+              </el-option>
+            </el-option-group>
+            <el-option-group label="答案相关">
+              <el-option label="答案" value="答案">
+                <el-icon class="mr-2"><Check /></el-icon>答案
+              </el-option>
+              <el-option label="答案的图片" value="答案的图片">
+                <el-icon class="mr-2"><Picture /></el-icon>答案的图片
+              </el-option>
+            </el-option-group>
+            <el-option-group label="其他内容">
+              <el-option label="解析" value="解析">
+                <el-icon class="mr-2"><Reading /></el-icon>解析
+              </el-option>
+              <el-option label="解析的图片" value="解析的图片">
+                <el-icon class="mr-2"><Picture /></el-icon>解析的图片
+              </el-option>
+              <el-option label="其他" value="其他">
+                <el-icon class="mr-2"><More /></el-icon>其他
+              </el-option>
+              <el-option label="其他的图片" value="其他的图片">
+                <el-icon class="mr-2"><Picture /></el-icon>其他的图片
+              </el-option>
+            </el-option-group>
+          </el-select>
+        </div>
+
+        <!-- 缩略图 -->
+        <div v-if="annotation.thumbnail" class="mb-4">
+          <div class="text-sm text-gray-600 mb-2">标注区域预览：</div>
+          <img
+            :src="annotation.thumbnail"
+            class="max-w-full max-h-64 object-contain border rounded-lg shadow-sm"
+          />
+        </div>
+
+        <!-- 文本内容编辑 -->
+        <div v-if="!annotation.type.includes('图片')" class="mb-4">
+          <div class="text-sm text-gray-600 mb-2">标注内容：</div>
+          <ElInput
+            v-model="modalEditContent"
+            type="textarea"
+            :rows="8"
+            placeholder="输入标注内容..."
+            class="modal-textarea"
+          />
+          <div class="text-xs text-gray-500 mt-2">
+            创建时间：{{ new Date(annotation.createdAt).toLocaleString() }}
+          </div>
+        </div>
+
+        <!-- 图片类型显示 -->
+        <div v-else class="mb-4">
+          <div class="text-sm text-gray-600 mb-2">标注内容：</div>
+          <div class="p-3 bg-gray-50 rounded-lg">
+            {{ annotation.label }}
+          </div>
+          <div class="text-xs text-gray-500 mt-2">
+            创建时间：{{ new Date(annotation.createdAt).toLocaleString() }}
+          </div>
+        </div>
+
+        <!-- 关联的子标注 -->
+        <div v-if="childAnnotations.length > 0" class="mb-4">
+          <div class="text-sm text-gray-600 mb-2">关联的图片标注：</div>
+          <div class="space-y-2">
+            <div
+              v-for="child in childAnnotations"
+              :key="child.id"
+              class="flex items-center justify-between bg-blue-50 p-3 rounded-lg"
+            >
+              <div class="flex items-center gap-2">
+                <el-icon><Picture /></el-icon>
+                <span>{{ child.label }} (第{{ child.pageNumber }}页)</span>
+              </div>
+              <ElButton
+                size="small"
+                type="danger"
+                text
+                @click="emit('unlinkAnnotation', annotation.id, child.id)"
+              >
+                取消关联
+              </ElButton>
+            </div>
+          </div>
+        </div>
+
+        <!-- 可关联的图片标注 -->
+        <div
+          v-if="!annotation.type.includes('图片') && availableChildAnnotations.length > 0"
+          class="mb-4"
+        >
+          <div class="text-sm text-gray-600 mb-2">关联图片标注：</div>
+          <ElSelect
+            placeholder="选择要关联的图片标注"
+            size="default"
+            class="w-full"
+            @change="(value: string) => emit('linkAnnotation', annotation.id, value)"
+          >
+            <ElOption
+              v-for="child in availableChildAnnotations"
+              :key="child.id"
+              :label="`${child.label} (第${child.pageNumber}页)`"
+              :value="child.id"
+            />
+          </ElSelect>
+        </div>
+
+        <!-- 父标注信息 -->
+        <div v-if="annotation.parentId" class="mb-4">
+          <div class="text-sm text-gray-600 mb-2">关联到：</div>
+          <div class="p-3 bg-green-50 rounded-lg">
+            {{ getParentAnnotation()?.label || '未知标注' }}
+            <span v-if="getParentAnnotation()">(第{{ getParentAnnotation()?.pageNumber }}页)</span>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between">
+          <div class="flex gap-2">
+            <ElButton v-if="showRemoveButton" type="warning" @click="handleRemoveFromGroup">
+              移出组
+            </ElButton>
+            <ElButton type="danger" @click="handleDeleteAnnotation"> 删除标注 </ElButton>
+          </div>
+          <div class="flex gap-2">
+            <ElButton @click="handleModalClose">取消</ElButton>
+            <ElButton type="primary" @click="handleSaveModal">保存</ElButton>
+          </div>
+        </div>
+      </template>
+    </ElDialog>
+
     <!-- 图片类型只显示标签 -->
-    <div v-else class="text-xs mb-2">
+    <div v-if="annotation.type.includes('图片')" class="text-xs mb-2">
       {{ annotation.label }}
     </div>
 
@@ -181,7 +355,16 @@
 
 <script setup lang="ts">
 import { ref, nextTick, computed, onMounted } from 'vue'
-import { ElButton, ElInput, ElSelect, ElOption, ElOptionGroup, ElTag, ElIcon } from 'element-plus'
+import {
+  ElButton,
+  ElInput,
+  ElSelect,
+  ElOption,
+  ElOptionGroup,
+  ElTag,
+  ElIcon,
+  ElDialog,
+} from 'element-plus'
 import {
   Document,
   QuestionFilled,
@@ -237,6 +420,10 @@ const isEditing = ref(false)
 const editContent = ref('')
 const textareaRef = ref()
 
+// 弹窗状态
+const modalVisible = ref(false)
+const modalEditContent = ref('')
+
 const startEditing = () => {
   if (props.annotation.type.includes('图片')) return
 
@@ -277,7 +464,39 @@ const availableChildAnnotations = computed(() => {
 // 获取父标注
 const getParentAnnotation = () => {
   if (!props.annotation.parentId) return null
-  return PDFStore.annotations.find((a) => a.id === props.annotation.parentId)
+  return PDFStore.annotations.find((a: Annotation) => a.id === props.annotation.parentId)
+}
+
+// 显示弹窗
+const showModal = () => {
+  modalVisible.value = true
+  modalEditContent.value = props.annotation.label
+}
+
+// 关闭弹窗
+const handleModalClose = () => {
+  modalVisible.value = false
+  modalEditContent.value = ''
+}
+
+// 保存弹窗内容
+const handleSaveModal = () => {
+  if (modalEditContent.value.trim() !== props.annotation.label) {
+    emit('updateContent', props.annotation.id, modalEditContent.value.trim())
+  }
+  modalVisible.value = false
+}
+
+// 处理移出组操作
+const handleRemoveFromGroup = () => {
+  emit('removeFromGroup', props.annotation.id)
+  modalVisible.value = false
+}
+
+// 处理删除标注操作
+const handleDeleteAnnotation = () => {
+  emit('deleteAnnotation', props.annotation.id)
+  modalVisible.value = false
 }
 
 // 根据标注类型获取标签类型
@@ -566,5 +785,66 @@ const getTypeTagType = (type: AnnotationType) => {
 .annotation-item-card .text-xs.text-gray-500 {
   background: #f8f9fa !important;
   color: #8e9aaf !important;
+}
+
+/* 弹窗样式 */
+:deep(.el-dialog) {
+  border-radius: 12px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+:deep(.el-dialog__header) {
+  padding: 20px 24px 16px !important;
+  border-bottom: 1px solid #e9ecef !important;
+}
+
+:deep(.el-dialog__title) {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  color: #374151 !important;
+}
+
+:deep(.el-dialog__body) {
+  padding: 24px !important;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+:deep(.el-dialog__footer) {
+  padding: 16px 24px 20px !important;
+  border-top: 1px solid #e9ecef !important;
+}
+
+.modal-content {
+  color: #374151;
+}
+
+.modal-textarea :deep(.el-textarea__inner) {
+  border-radius: 8px !important;
+  border: 2px solid #e9ecef !important;
+  transition: all 0.2s ease !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+}
+
+.modal-textarea :deep(.el-textarea__inner:focus) {
+  border-color: #409eff !important;
+  box-shadow: 0 0 0 3px rgba(64, 158, 255, 0.1) !important;
+}
+
+/* 弹窗内的背景色样式 */
+.modal-content .bg-gray-50 {
+  background: #f8f9fa !important;
+  border: 1px solid #e9ecef !important;
+}
+
+.modal-content .bg-blue-50 {
+  background: #e3f2fd !important;
+  border: 1px solid #bbdefb !important;
+}
+
+.modal-content .bg-green-50 {
+  background: #e8f5e8 !important;
+  border: 1px solid #c8e6c9 !important;
 }
 </style>
