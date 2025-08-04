@@ -35,6 +35,15 @@ export interface Annotation {
   thumbnail?: string
   type: AnnotationType
   label: string
+  groupId?: string
+}
+
+export interface AnnotationGroup {
+  id: string
+  name: string
+  createdAt: Date
+  annotationIds: string[]
+  color?: string
 }
 
 export interface PageInfo {
@@ -63,6 +72,9 @@ export const usePDFStore = defineStore('PDF', () => {
   const scale = ref(1.5)
   const annotations = ref<Annotation[]>([])
   const selectedAnnotation = ref<string | null>(null)
+  const selectedAnnotations = ref<Set<string>>(new Set())
+  const annotationGroups = ref<AnnotationGroup[]>([])
+  const isGroupMode = ref(false)
   const canvasRefs = new Map<number, HTMLCanvasElement>()
   const overlayCanvasRefs = new Map<number, HTMLCanvasElement>()
   // 新增：记录当前可见页
@@ -559,6 +571,86 @@ export const usePDFStore = defineStore('PDF', () => {
     return thumbnailCanvas.toDataURL()
   }
 
+  // 编组相关方法
+  const toggleAnnotationSelection = (annotationId: string) => {
+    if (selectedAnnotations.value.has(annotationId)) {
+      selectedAnnotations.value.delete(annotationId)
+    } else {
+      selectedAnnotations.value.add(annotationId)
+    }
+  }
+
+  const clearAnnotationSelection = () => {
+    selectedAnnotations.value.clear()
+  }
+
+  const createGroup = (groupName: string) => {
+    if (selectedAnnotations.value.size === 0) return null
+
+    const groupId = Date.now().toString()
+    const newGroup: AnnotationGroup = {
+      id: groupId,
+      name: groupName,
+      createdAt: new Date(),
+      annotationIds: Array.from(selectedAnnotations.value),
+      color: `hsl(${Math.random() * 360}, 70%, 80%)`,
+    }
+
+    // 更新标注的groupId
+    annotations.value.forEach((annotation) => {
+      if (selectedAnnotations.value.has(annotation.id)) {
+        annotation.groupId = groupId
+      }
+    })
+
+    annotationGroups.value.push(newGroup)
+    clearAnnotationSelection()
+    return newGroup
+  }
+
+  const removeFromGroup = (annotationId: string) => {
+    const annotation = annotations.value.find((a) => a.id === annotationId)
+    if (!annotation?.groupId) return
+
+    const group = annotationGroups.value.find((g) => g.id === annotation.groupId)
+    if (group) {
+      group.annotationIds = group.annotationIds.filter((id) => id !== annotationId)
+      if (group.annotationIds.length === 0) {
+        annotationGroups.value = annotationGroups.value.filter((g) => g.id !== group.id)
+      }
+    }
+    annotation.groupId = undefined
+  }
+
+  const deleteGroup = (groupId: string) => {
+    // 移除标注的groupId
+    annotations.value.forEach((annotation) => {
+      if (annotation.groupId === groupId) {
+        annotation.groupId = undefined
+      }
+    })
+    // 删除组
+    annotationGroups.value = annotationGroups.value.filter((g) => g.id !== groupId)
+  }
+
+  const getGroupedAnnotations = () => {
+    const grouped: { [key: string]: Annotation[] } = {}
+    const ungrouped: Annotation[] = []
+
+    annotations.value.forEach((annotation) => {
+      if (annotation.groupId) {
+        if (!grouped[annotation.groupId]) {
+          grouped[annotation.groupId] = []
+        }
+        grouped[annotation.groupId].push(annotation)
+      } else {
+        ungrouped.push(annotation)
+      }
+    })
+
+    return { grouped, ungrouped }
+  }
+
   return {
     PDFFile,
     currentPage,
@@ -566,6 +658,9 @@ export const usePDFStore = defineStore('PDF', () => {
     scale,
     annotations,
     selectedAnnotation,
+    selectedAnnotations,
+    annotationGroups,
+    isGroupMode,
     canvasRefs,
     overlayCanvasRefs,
     PDFDocument,
@@ -598,5 +693,11 @@ export const usePDFStore = defineStore('PDF', () => {
     getCanvasPoint,
     drawRectangle,
     generateThumbnail,
+    toggleAnnotationSelection,
+    clearAnnotationSelection,
+    createGroup,
+    removeFromGroup,
+    deleteGroup,
+    getGroupedAnnotations,
   }
 })

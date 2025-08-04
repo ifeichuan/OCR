@@ -1,6 +1,5 @@
 <template>
   <div class="flex flex-col">
-    <div class="w-full h-10 bg-amber-200">123</div>
     <PDFView></PDFView>
   </div>
 </template>
