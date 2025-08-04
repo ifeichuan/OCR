@@ -1,3 +1,7 @@
+# Prompt
+
+你是一个精通Vue3与canvas渲染的前端工程师，现在领导给你一个任务：实现一个OCR文本识别插件，领导希望你用Vue3+pinia+router+vue-pdf-embedded实现它。
+
 ## 技术栈
 
 1. Vue3
