@@ -24,7 +24,17 @@ export interface RelativeRectangle {
   height: number
 }
 
-export type AnnotationType = '题目' | '选项' | '答案' | '图片' | '自定义'
+export type AnnotationType =
+  | '问题'
+  | '问题的图片'
+  | '选项'
+  | '选项的图片'
+  | '答案'
+  | '答案的图片'
+  | '其他'
+  | '其他的图片'
+  | '解析'
+  | '解析的图片'
 
 export interface Annotation {
   id: string
@@ -36,6 +46,8 @@ export interface Annotation {
   type: AnnotationType
   label: string
   groupId?: string
+  parentId?: string // 父标注ID（用于图片关联到文本）
+  childIds?: string[] // 子标注ID数组（用于文本关联到图片）
 }
 
 export interface AnnotationGroup {
@@ -262,17 +274,45 @@ export const usePDFStore = defineStore('PDF', () => {
       ctx.setLineDash([])
     } else {
       switch (annotationType) {
-        case '题目':
+        case '问题':
           ctx.strokeStyle = '#1976d2'
           ctx.fillStyle = 'rgba(25, 118, 210, 0.1)'
+          break
+        case '问题的图片':
+          ctx.strokeStyle = '#1565c0'
+          ctx.fillStyle = 'rgba(21, 101, 192, 0.1)'
           break
         case '选项':
           ctx.strokeStyle = '#7b1fa2'
           ctx.fillStyle = 'rgba(123, 31, 162, 0.1)'
           break
+        case '选项的图片':
+          ctx.strokeStyle = '#6a1b9a'
+          ctx.fillStyle = 'rgba(106, 27, 154, 0.1)'
+          break
         case '答案':
           ctx.strokeStyle = '#388e3c'
           ctx.fillStyle = 'rgba(56, 142, 60, 0.1)'
+          break
+        case '答案的图片':
+          ctx.strokeStyle = '#2e7d32'
+          ctx.fillStyle = 'rgba(46, 125, 50, 0.1)'
+          break
+        case '其他':
+          ctx.strokeStyle = '#f57c00'
+          ctx.fillStyle = 'rgba(245, 124, 0, 0.1)'
+          break
+        case '其他的图片':
+          ctx.strokeStyle = '#ef6c00'
+          ctx.fillStyle = 'rgba(239, 108, 0, 0.1)'
+          break
+        case '解析':
+          ctx.strokeStyle = '#5d4037'
+          ctx.fillStyle = 'rgba(93, 64, 55, 0.1)'
+          break
+        case '解析的图片':
+          ctx.strokeStyle = '#4e342e'
+          ctx.fillStyle = 'rgba(78, 52, 46, 0.1)'
           break
         default:
           ctx.strokeStyle = '#4caf50'
@@ -651,6 +691,79 @@ export const usePDFStore = defineStore('PDF', () => {
     return { grouped, ungrouped }
   }
 
+  // 手动关联标注（建立父子关系）
+  const linkAnnotations = (parentId: string, childId: string) => {
+    const parentAnnotation = annotations.value.find((a) => a.id === parentId)
+    const childAnnotation = annotations.value.find((a) => a.id === childId)
+
+    if (!parentAnnotation || !childAnnotation) return false
+
+    // 检查类型是否匹配（例如：问题 -> 问题的图片）
+    const baseType = parentAnnotation.type
+    const expectedChildType = `${baseType}的图片`
+
+    if (childAnnotation.type !== expectedChildType) {
+      return false // 类型不匹配
+    }
+
+    // 建立关联关系
+    if (!parentAnnotation.childIds) {
+      parentAnnotation.childIds = []
+    }
+
+    if (!parentAnnotation.childIds.includes(childId)) {
+      parentAnnotation.childIds.push(childId)
+    }
+
+    childAnnotation.parentId = parentId
+
+    return true
+  }
+
+  // 取消标注关联
+  const unlinkAnnotations = (parentId: string, childId: string) => {
+    const parentAnnotation = annotations.value.find((a) => a.id === parentId)
+    const childAnnotation = annotations.value.find((a) => a.id === childId)
+
+    if (!parentAnnotation || !childAnnotation) return false
+
+    // 移除关联关系
+    if (parentAnnotation.childIds) {
+      parentAnnotation.childIds = parentAnnotation.childIds.filter((id) => id !== childId)
+      if (parentAnnotation.childIds.length === 0) {
+        delete parentAnnotation.childIds
+      }
+    }
+
+    delete childAnnotation.parentId
+
+    return true
+  }
+
+  // 获取标注的子标注
+  const getChildAnnotations = (parentId: string): Annotation[] => {
+    const parentAnnotation = annotations.value.find((a) => a.id === parentId)
+    if (!parentAnnotation?.childIds) return []
+
+    return parentAnnotation.childIds
+      .map((id) => annotations.value.find((a) => a.id === id))
+      .filter(Boolean) as Annotation[]
+  }
+
+  // 获取可以关联的标注（跨页面且类型匹配）
+  const getAvailableChildAnnotations = (parentId: string): Annotation[] => {
+    const parentAnnotation = annotations.value.find((a) => a.id === parentId)
+    if (!parentAnnotation) return []
+
+    const baseType = parentAnnotation.type
+    const expectedChildType = `${baseType}的图片`
+
+    return annotations.value.filter(
+      (annotation) =>
+        annotation.id !== parentId && annotation.type === expectedChildType && !annotation.parentId, // 未被其他标注关联
+    )
+  }
+
   return {
     PDFFile,
     currentPage,
@@ -699,5 +812,9 @@ export const usePDFStore = defineStore('PDF', () => {
     removeFromGroup,
     deleteGroup,
     getGroupedAnnotations,
+    linkAnnotations,
+    unlinkAnnotations,
+    getChildAnnotations,
+    getAvailableChildAnnotations,
   }
 })
