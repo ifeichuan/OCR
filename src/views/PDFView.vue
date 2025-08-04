@@ -1,14 +1,14 @@
 <template>
-  <div class="flex gap-10">
-    <div class="bg-amber-200 min-h-screen flex gap-3 flex-col p-3">
+  <div class="flex gap-3 h-screen">
+    <div class="bg-amber-200 flex gap-3 flex-col p-3 w-1/8 shrink-0">
       <ElButton @click="selectFile">上传文件</ElButton>
       <ElInputNumber v-model="PDFStore.scale" :step="0.1" :max="2.8" :min="0.5"></ElInputNumber>
     </div>
-    <div class="flex flex-col gap-2 m-auto">
+    <div class="flex flex-col gap-2 w-7/8 overflow-y-auto">
       <div
         v-for="pageNum in PDFStore.totalPages"
         :key="pageNum"
-        class="border w-full rounded-2xl p-1 relative"
+        class="border rounded-2xl p-1 relative m-auto"
       >
         <canvas :ref="(el) => PDFStore.setCanvasRef(el, pageNum)" :data-page="pageNum"></canvas>
         <canvas

@@ -24,7 +24,7 @@ export interface RelativeRectangle {
   height: number
 }
 
-export type AnnotationType = '题目' | '选项' | '答案'
+export type AnnotationType = '题目' | '选项' | '答案' | '图片' | '自定义'
 
 export interface Annotation {
   id: string
@@ -281,7 +281,7 @@ export const usePDFStore = defineStore('PDF', () => {
     // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height)
 
-    // 绘制该页面的标注
+    // 绘制该页面的已保存标注
     const pageAnnotations = annotations.value.filter((a) => a.pageNumber === pageNumber)
     pageAnnotations.forEach((annotation) => {
       const canvasRect = annotation.relativeRectangle
@@ -472,15 +472,14 @@ export const usePDFStore = defineStore('PDF', () => {
 
       // 计算工具栏位置
       const canvas = annotationCanvases.value.get(pageNum)
-      if (canvas && containerRef.value) {
-        const containerRect = containerRef.value.getBoundingClientRect()
+      if (canvas) {
         const canvasRect = canvas.getBoundingClientRect()
         const scaleX = canvasRect.width / canvas.width
         const scaleY = canvasRect.height / canvas.height
 
         toolbarPosition.value = {
-          x: containerRect.left + (rect.x + rect.width / 2) * scaleX,
-          y: containerRect.top + (pageInfo.offsetY + rect.y) * scaleY - scrollTop.value,
+          x: canvasRect.left + (rect.x + rect.width / 2) * scaleX,
+          y: canvasRect.top + rect.y * scaleY,
         }
       }
 
