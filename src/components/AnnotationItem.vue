@@ -364,6 +364,7 @@ import {
   ElTag,
   ElIcon,
   ElDialog,
+  ElMessage,
 } from 'element-plus'
 import {
   Document,
@@ -402,6 +403,7 @@ onMounted(async () => {
   } else {
     console.log(props.annotation.thumbnail)
     const text = await callOCR(props.annotation.thumbnail as string)
+    ElMessage.success('OCR完成')
     emit('updateContent', props.annotation.id, text)
   }
 })

@@ -340,6 +340,9 @@ const buildQuestionStructure = (groupAnnotations: Annotation[]) => {
     return typeData.map((item) => ({
       id: item.text.id,
       text: item.text.label,
+      pageNumber: item.text.pageNumber,
+      rectangle: item.text.rectangle,
+      relativeRectangle: item.text.relativeRectangle,
       images: item.images.length > 0 ? item.images.map(() => '暂未完成') : [],
     }))
   }

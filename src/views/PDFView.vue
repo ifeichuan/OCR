@@ -297,7 +297,7 @@ import {
   Key,
 } from '@element-plus/icons-vue'
 import type { AnnotationType } from '@/stores/PDFStore'
-import { watch, computed } from 'vue'
+import { watch, computed, onMounted } from 'vue'
 import AnnotationList from '@/components/AnnotationList.vue'
 
 useKeyboardShortcuts()
@@ -325,6 +325,72 @@ watch(
   },
 )
 
+// 从URL参数加载PDF
+const loadPDFFromURL = async (url: string, Urlparams: URLSearchParams) => {
+  let a
+  const companyName = Urlparams.get('company_name')
+  const conpanyId = Urlparams.get('company_id')
+  try {
+    a = ElMessage.info('加载中')
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`网络请求失败: ${response.status}`)
+    }
+
+    const blob = await response.blob()
+    const file = new File([blob], `${companyName}_${conpanyId}`, { type: 'application/pdf' })
+
+    PDFStore.PDFFile = file
+    await PDFStore.loadPDF()
+    const observer = new IntersectionObserver(
+      async (entries) => {
+        for (const entry of entries) {
+          const page = Number((entry.target as HTMLCanvasElement).dataset.page)
+          PDFStore.setPageVisible(page, entry.isIntersecting)
+          if (entry.isIntersecting) {
+            await PDFStore.renderPage(page, entry.target as HTMLCanvasElement)
+            // 渲染完成后绘制该页面的标注
+            PDFStore.drawPageAnnotations(page)
+          }
+        }
+      },
+      { threshold: 0.1 },
+    )
+
+    PDFStore.canvasRefs.forEach((canvasRef) => {
+      observer.observe(canvasRef)
+    })
+    ElMessage.success('PDF文件加载成功')
+  } catch (error) {
+    console.error('加载PDF文件失败:', error)
+    ElMessage.error(`加载PDF文件失败: ${error instanceof Error ? error.message : '未知错误'}`)
+  } finally {
+    a?.close()
+  }
+}
+
+// 组件挂载时检查URL参数
+onMounted(() => {
+  const urlParams = new URLSearchParams(window.location.search)
+  const fileUrl = urlParams.get('file_url')
+  const companyId = urlParams.get('company_id')
+
+  if (fileUrl) {
+    console.log('从URL参数加载PDF:', fileUrl)
+    console.log('公司ID:', companyId)
+
+    // 保存公司ID到PDFStore或其他需要的地方
+    if (companyId) {
+      // 可以将公司ID存储到PDFStore中，如果需要的话
+      // PDFStore.companyId = companyId
+      console.log('公司ID已保存:', companyId)
+    }
+
+    // 加载PDF文件
+    loadPDFFromURL(fileUrl, urlParams)
+  }
+})
+
 const selectFile = async () => {
   const input = document.createElement('input')
   input.setAttribute('type', 'file')
@@ -340,14 +406,12 @@ const selectFile = async () => {
     console.log(file)
     PDFStore.PDFFile = file
     await PDFStore.loadPDF()
-
     const observer = new IntersectionObserver(
       async (entries) => {
         for (const entry of entries) {
           const page = Number((entry.target as HTMLCanvasElement).dataset.page)
           PDFStore.setPageVisible(page, entry.isIntersecting)
           if (entry.isIntersecting) {
-            console.log(page, entry)
             await PDFStore.renderPage(page, entry.target as HTMLCanvasElement)
             // 渲染完成后绘制该页面的标注
             PDFStore.drawPageAnnotations(page)
@@ -356,6 +420,7 @@ const selectFile = async () => {
       },
       { threshold: 0.1 },
     )
+
     PDFStore.canvasRefs.forEach((canvasRef) => {
       observer.observe(canvasRef)
     })
