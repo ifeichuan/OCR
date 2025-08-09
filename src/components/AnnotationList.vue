@@ -1,11 +1,11 @@
 <template>
-  <div v-if="PDFStore.annotations.length > 0" class="annotation-list-container">
+  <div v-if="annotationStore.annotations.length > 0" class="annotation-list-container">
     <!-- 标题和操作区域 -->
     <div class="list-header">
       <div class="flex items-center gap-2 mb-3">
         <el-icon color="#409EFF" size="18"><Collection /></el-icon>
         <h3 class="text-base font-semibold text-gray-800">标注列表</h3>
-        <el-badge :value="PDFStore.annotations.length" class="ml-2" type="primary" />
+        <el-badge :value="annotationStore.annotations.length" class="ml-2" type="primary" />
       </div>
 
       <div class="flex flex-col gap-2 mb-4">
@@ -15,21 +15,21 @@
         </el-button>
         <el-button
           size="small"
-          :type="PDFStore.isGroupMode ? 'primary' : 'default'"
+          :type="annotationStore.isGroupMode ? 'primary' : 'default'"
           @click="toggleGroupMode"
           class="action-btn"
         >
           <el-icon class="mr-1">
-            <component :is="PDFStore.isGroupMode ? 'Close' : 'Connection'" />
+            <component :is="annotationStore.isGroupMode ? 'Close' : 'Connection'" />
           </el-icon>
-          {{ PDFStore.isGroupMode ? '退出编组' : '编组模式' }}
+          {{ annotationStore.isGroupMode ? '退出编组' : '编组模式' }}
         </el-button>
       </div>
     </div>
 
     <!-- 编组模式下的操作区域 -->
     <div
-      v-if="PDFStore.isGroupMode && PDFStore.selectedAnnotations.size > 0"
+      v-if="annotationStore.isGroupMode && annotationStore.selectedAnnotations.size > 0"
       class="group-mode-panel"
     >
       <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
@@ -58,7 +58,7 @@
         <div class="flex items-center justify-between">
           <div class="text-xs text-blue-600 flex items-center gap-1">
             <el-icon size="12"><Select /></el-icon>
-            已选择 {{ PDFStore.selectedAnnotations.size }} 个标注
+            已选择 {{ annotationStore.selectedAnnotations.size }} 个标注
           </div>
           <el-button size="small" @click="clearSelection" class="action-btn">
             <el-icon class="mr-1"><Close /></el-icon>
@@ -71,7 +71,7 @@
     <!-- 分组显示标注 -->
     <div class="annotations-container space-y-4">
       <!-- 显示分组 -->
-      <div v-for="group in PDFStore.annotationGroups" :key="group.id" class="group-card">
+      <div v-for="group in annotationStore.annotationGroups" :key="group.id" class="group-card">
         <div class="group-header">
           <div class="flex items-center gap-3">
             <div
@@ -102,11 +102,11 @@
             v-for="annotation in getGroupAnnotations(group.id)"
             :key="annotation.id"
             :annotation="annotation"
-            :is-selected="annotation.id === PDFStore.selectedAnnotation"
+            :is-selected="annotation.id === annotationStore.selectedAnnotation"
             :is-multi-selected="
-              PDFStore.isGroupMode && PDFStore.selectedAnnotations.has(annotation.id)
+              annotationStore.isGroupMode && annotationStore.selectedAnnotations.has(annotation.id)
             "
-            :is-group-mode="PDFStore.isGroupMode"
+            :is-group-mode="annotationStore.isGroupMode"
             :show-remove-button="true"
             @click="handleAnnotationClick"
             @remove-from-group="removeFromGroup"
@@ -136,11 +136,11 @@
             v-for="annotation in ungroupedAnnotations"
             :key="annotation.id"
             :annotation="annotation"
-            :is-selected="annotation.id === PDFStore.selectedAnnotation"
+            :is-selected="annotation.id === annotationStore.selectedAnnotation"
             :is-multi-selected="
-              PDFStore.isGroupMode && PDFStore.selectedAnnotations.has(annotation.id)
+              annotationStore.isGroupMode && annotationStore.selectedAnnotations.has(annotation.id)
             "
-            :is-group-mode="PDFStore.isGroupMode"
+            :is-group-mode="annotationStore.isGroupMode"
             :show-remove-button="false"
             @click="handleAnnotationClick"
             @update-content="updateAnnotationContent"
@@ -170,34 +170,36 @@ import {
   Delete,
   Files,
 } from '@element-plus/icons-vue'
-import { PDFStore } from '@/main'
-import type { Annotation, AnnotationType } from '@/stores/PDFStore'
+import { PDFStore, AnnotationStore } from '@/main'
+import type { Annotation, AnnotationType, AnnotationGroup } from '@/stores/AnnotationStore'
 import AnnotationItem from '@/components/AnnotationItem.vue'
+
+const annotationStore = AnnotationStore
 
 // 编组相关状态
 const groupName = ref('')
 
 // 计算属性：获取未分组的标注
 const ungroupedAnnotations = computed(() => {
-  const { ungrouped } = PDFStore.getGroupedAnnotations()
+  const { ungrouped } = annotationStore.getGroupedAnnotations()
   return ungrouped
 })
 
 // 编组功能方法
 const toggleGroupMode = () => {
-  PDFStore.isGroupMode = !PDFStore.isGroupMode
-  if (!PDFStore.isGroupMode) {
-    PDFStore.clearAnnotationSelection()
+  annotationStore.isGroupMode = !annotationStore.isGroupMode
+  if (!annotationStore.isGroupMode) {
+    annotationStore.clearAnnotationSelection()
   }
 }
 
 const handleAnnotationClick = (annotation: Annotation) => {
-  if (PDFStore.isGroupMode) {
+  if (annotationStore.isGroupMode) {
     // 编组模式下，切换选择状态
-    PDFStore.toggleAnnotationSelection(annotation.id)
+    annotationStore.toggleAnnotationSelection(annotation.id)
   } else {
     // 普通模式下，选择标注
-    PDFStore.selectAnnotation(annotation.id)
+    annotationStore.selectAnnotation(annotation.id)
     // 重新绘制该页面以显示选中状态
     PDFStore.drawPageAnnotations(annotation.pageNumber)
   }
@@ -209,7 +211,7 @@ const createNewGroup = () => {
     return
   }
 
-  const group = PDFStore.createGroup(groupName.value.trim())
+  const group = annotationStore.createGroup(groupName.value.trim())
   if (group) {
     ElMessage.success(`成功创建组: ${group.name}`)
     groupName.value = ''
@@ -219,30 +221,30 @@ const createNewGroup = () => {
 }
 
 const clearSelection = () => {
-  PDFStore.clearAnnotationSelection()
+  annotationStore.clearAnnotationSelection()
 }
 
 const deleteGroup = (groupId: string) => {
-  PDFStore.deleteGroup(groupId)
+  annotationStore.deleteGroup(groupId)
   ElMessage.success('已删除组')
 }
 
 const removeFromGroup = (annotationId: string) => {
-  PDFStore.removeFromGroup(annotationId)
+  annotationStore.removeFromGroup(annotationId)
   ElMessage.success('已移出组')
 }
 
 const getGroupAnnotations = (groupId: string) => {
-  const group = PDFStore.annotationGroups.find((g) => g.id === groupId)
+  const group = annotationStore.annotationGroups.find((g: AnnotationGroup) => g.id === groupId)
   if (!group) return []
 
   return group.annotationIds
-    .map((id) => PDFStore.annotations.find((a) => a.id === id))
+    .map((id: string) => annotationStore.annotations.find((a: Annotation) => a.id === id))
     .filter(Boolean) as Annotation[]
 }
 
 const updateAnnotationContent = (annotationId: string, content: string) => {
-  const annotation = PDFStore.annotations.find((a) => a.id === annotationId)
+  const annotation = annotationStore.annotations.find((a: Annotation) => a.id === annotationId)
   if (annotation) {
     annotation.label = content
   }
@@ -250,7 +252,7 @@ const updateAnnotationContent = (annotationId: string, content: string) => {
 
 // 更新标注类型
 const updateAnnotationType = (annotationId: string, type: AnnotationType) => {
-  const annotation = PDFStore.annotations.find((a) => a.id === annotationId)
+  const annotation = annotationStore.annotations.find((a: Annotation) => a.id === annotationId)
   if (annotation) {
     annotation.type = type
     // 重新绘制该页面以更新标注颜色
@@ -260,7 +262,7 @@ const updateAnnotationType = (annotationId: string, type: AnnotationType) => {
 
 // 关联标注
 const linkAnnotations = (parentId: string, childId: string) => {
-  const success = PDFStore.linkAnnotations(parentId, childId)
+  const success = annotationStore.linkAnnotations(parentId, childId)
   if (success) {
     ElMessage.success('标注关联成功')
   } else {
@@ -270,7 +272,7 @@ const linkAnnotations = (parentId: string, childId: string) => {
 
 // 取消关联标注
 const unlinkAnnotations = (parentId: string, childId: string) => {
-  const success = PDFStore.unlinkAnnotations(parentId, childId)
+  const success = annotationStore.unlinkAnnotations(parentId, childId)
   if (success) {
     ElMessage.success('已取消标注关联')
   } else {
@@ -292,7 +294,7 @@ const buildQuestionStructure = (groupAnnotations: Annotation[]) => {
   }
 
   // 分类所有标注
-  groupAnnotations.forEach((annotation) => {
+  groupAnnotations.forEach((annotation: Annotation) => {
     if (processedIds.has(annotation.id)) return
 
     const baseType = annotation.type.replace('的图片', '')
@@ -305,7 +307,7 @@ const buildQuestionStructure = (groupAnnotations: Annotation[]) => {
     }
 
     // 获取该文本标注关联的所有图片
-    const childImages = PDFStore.getChildAnnotations(annotation.id)
+    const childImages = annotationStore.getChildAnnotations(annotation.id)
 
     const annotationData = {
       text: annotation,
@@ -332,12 +334,12 @@ const buildQuestionStructure = (groupAnnotations: Annotation[]) => {
 
     processedIds.add(annotation.id)
     // 标记关联的图片为已处理
-    childImages.forEach((child) => processedIds.add(child.id))
+    childImages.forEach((child: Annotation) => processedIds.add(child.id))
   })
 
   // 构建每个类型的结构
   const buildTypeStructure = (typeData: { text: Annotation; images: Annotation[] }[]) => {
-    return typeData.map((item) => ({
+    return typeData.map((item: { text: Annotation; images: Annotation[] }) => ({
       id: item.text.id,
       text: item.text.label,
       pageNumber: item.text.pageNumber,
@@ -366,14 +368,14 @@ const deleteAnnotation = async (annotationId: string) => {
     })
 
     // 找到要删除的标注
-    const annotation = PDFStore.annotations.find((a) => a.id === annotationId)
+    const annotation = annotationStore.annotations.find((a: Annotation) => a.id === annotationId)
     if (!annotation) {
       ElMessage.error('标注不存在')
       return
     }
 
     // 从所有组中移除该标注
-    PDFStore.annotationGroups.forEach((group) => {
+    annotationStore.annotationGroups.forEach((group: AnnotationGroup) => {
       const index = group.annotationIds.indexOf(annotationId)
       if (index > -1) {
         group.annotationIds.splice(index, 1)
@@ -381,15 +383,17 @@ const deleteAnnotation = async (annotationId: string) => {
     })
 
     // 从选中状态中移除
-    if (PDFStore.selectedAnnotation === annotationId) {
-      PDFStore.selectedAnnotation = null
+    if (annotationStore.selectedAnnotation === annotationId) {
+      annotationStore.selectedAnnotation = null
     }
-    PDFStore.selectedAnnotations.delete(annotationId)
+    annotationStore.selectedAnnotations.delete(annotationId)
 
     // 从标注列表中删除
-    const annotationIndex = PDFStore.annotations.findIndex((a) => a.id === annotationId)
+    const annotationIndex = annotationStore.annotations.findIndex(
+      (a: Annotation) => a.id === annotationId,
+    )
     if (annotationIndex > -1) {
-      PDFStore.annotations.splice(annotationIndex, 1)
+      annotationStore.annotations.splice(annotationIndex, 1)
     }
 
     // 重新绘制该页面以移除标注显示
@@ -432,17 +436,19 @@ const getUngroupedAnnotations = () => {
   const groupedIds = new Set<string>()
 
   // 收集所有已分组的标注ID
-  PDFStore.annotationGroups.forEach((group) => {
-    group.annotationIds.forEach((id) => {
+  annotationStore.annotationGroups.forEach((group: AnnotationGroup) => {
+    group.annotationIds.forEach((id: string) => {
       groupedIds.add(id)
       // 同时添加关联的子标注ID
-      const childAnnotations = PDFStore.getChildAnnotations(id)
-      childAnnotations.forEach((child) => groupedIds.add(child.id))
+      const childAnnotations = annotationStore.getChildAnnotations(id)
+      childAnnotations.forEach((child: Annotation) => groupedIds.add(child.id))
     })
   })
 
   // 返回未分组的标注
-  return PDFStore.annotations.filter((annotation) => !groupedIds.has(annotation.id))
+  return annotationStore.annotations.filter(
+    (annotation: Annotation) => !groupedIds.has(annotation.id),
+  )
 }
 
 // 导出为题库功能
@@ -454,13 +460,13 @@ const exportToQuestionBank = () => {
     // 构建题库数据结构
     const questionBank = {
       title: `PDF标注题库_${new Date().toLocaleDateString()}`,
-      totalQuestions: PDFStore.annotationGroups.length,
-      totalAnnotations: PDFStore.annotations.length,
+      totalQuestions: annotationStore.annotationGroups.length,
+      totalAnnotations: annotationStore.annotations.length,
       questions: [] as any[],
     }
 
     // 处理现有分组的标注
-    PDFStore.annotationGroups.forEach((group) => {
+    annotationStore.annotationGroups.forEach((group: AnnotationGroup) => {
       const groupAnnotations = getGroupAnnotations(group.id)
       if (groupAnnotations.length === 0) return
 
@@ -478,7 +484,7 @@ const exportToQuestionBank = () => {
     // 如果有未分组的标注，按页面和类型自动创建组
     if (ungroupedAnnotations.length > 0) {
       const annotationsByPage = new Map<number, Annotation[]>()
-      ungroupedAnnotations.forEach((annotation) => {
+      ungroupedAnnotations.forEach((annotation: Annotation) => {
         if (!annotationsByPage.has(annotation.pageNumber)) {
           annotationsByPage.set(annotation.pageNumber, [])
         }
@@ -490,7 +496,7 @@ const exportToQuestionBank = () => {
         const typeGroups = new Map<string, Annotation[]>()
         const processedIds = new Set<string>()
 
-        pageAnnotations.forEach((annotation) => {
+        pageAnnotations.forEach((annotation: Annotation) => {
           if (processedIds.has(annotation.id)) return
 
           const baseType = annotation.type.replace('的图片', '')
@@ -510,15 +516,15 @@ const exportToQuestionBank = () => {
           processedIds.add(annotation.id)
 
           // 添加关联的子标注
-          const childAnnotations = PDFStore.getChildAnnotations(annotation.id)
-          childAnnotations.forEach((child) => {
+          const childAnnotations = annotationStore.getChildAnnotations(annotation.id)
+          childAnnotations.forEach((child: Annotation) => {
             typeGroups.get(baseType)!.push(child)
             processedIds.add(child.id)
           })
         })
 
         // 为每个类型组创建题目
-        typeGroups.forEach((annotations, baseType) => {
+        typeGroups.forEach((annotations: Annotation[], baseType: string) => {
           if (annotations.length > 0) {
             const questionStructure = buildQuestionStructure(annotations)
             const randomNum = Math.floor(Math.random() * 1000) + 1

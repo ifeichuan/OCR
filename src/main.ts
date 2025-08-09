@@ -7,6 +7,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import { usePDFStore } from './stores/PDFStore'
+import { useAnnotationStore } from './stores/AnnotationStore'
 
 const app = createApp(App)
 
@@ -18,6 +19,7 @@ const Pinia = createPinia()
 
 app.use(Pinia)
 export const PDFStore = usePDFStore()
+export const AnnotationStore = useAnnotationStore()
 app.use(router)
 app.use(ElementPlus)
 

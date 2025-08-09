@@ -33,7 +33,6 @@ export async function callOCR(base64Image: string) {
           },
         ],
         temperature: 0.1,
-        max_tokens: 4000,
       }),
     })
 

@@ -375,8 +375,8 @@ import {
   Reading,
   More,
 } from '@element-plus/icons-vue'
-import type { Annotation, AnnotationType } from '@/stores/PDFStore'
-import { PDFStore } from '@/main'
+import type { Annotation, AnnotationType } from '@/stores/AnnotationStore'
+import { PDFStore, AnnotationStore } from '@/main'
 import { callOCR } from '@/stores/AIOCR'
 
 interface Props {
@@ -455,18 +455,18 @@ const updateAnnotationType = (type: AnnotationType) => {
 
 // 计算属性：获取子标注
 const childAnnotations = computed(() => {
-  return PDFStore.getChildAnnotations(props.annotation.id)
+  return AnnotationStore.getChildAnnotations(props.annotation.id)
 })
 
 // 计算属性：获取可关联的子标注
 const availableChildAnnotations = computed(() => {
-  return PDFStore.getAvailableChildAnnotations(props.annotation.id)
+  return AnnotationStore.getAvailableChildAnnotations(props.annotation.id)
 })
 
 // 获取父标注
 const getParentAnnotation = () => {
   if (!props.annotation.parentId) return null
-  return PDFStore.annotations.find((a: Annotation) => a.id === props.annotation.parentId)
+  return AnnotationStore.annotations.find((a: Annotation) => a.id === props.annotation.parentId)
 }
 
 // 显示弹窗

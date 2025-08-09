@@ -1,0 +1,69 @@
+{
+  "title": "PDF标注题库_2025/8/7",
+  "totalQuestions": 3,
+  "totalAnnotations": 7,
+  "questions": [
+    {
+      "id": "1754536432820",
+      "groupName": "题目1",
+      "questions": [
+        {
+          "id": "1754536411477",
+          "text": "申请公租房”一件事",
+          "images": []
+        },
+        {
+          "id": "1754536419078",
+          "text": "程网办，为群众带来精准化、便捷化、智能化的高效政务服",
+          "images": []
+        }
+      ],
+      "options": [
+        {
+          "id": "1754536416447",
+          "text": "住房、社保等多部门核查事项集成为群众视角的”一件事”，",
+          "images": []
+        }
+      ],
+      "answers": [
+        {
+          "id": "1754536421958",
+          "text": "答案 - 11:13:41",
+          "images": []
+        }
+      ],
+      "others": [],
+      "parses": []
+    },
+    {
+      "id": "auto_group_1_选项_413",
+      "groupName": "第1页_选项_413",
+      "questions": [],
+      "options": [
+        {
+          "id": "1754538657653",
+          "text": "自然人",
+          "images": []
+        }
+      ],
+      "answers": [],
+      "others": [],
+      "parses": []
+    },
+    {
+      "id": "auto_group_1_问题_262",
+      "groupName": "第1页_问题_262",
+      "questions": [
+        {
+          "id": "1754538660174",
+          "text": "· 国家清单对应内容",
+          "images": []
+        }
+      ],
+      "options": [],
+      "answers": [],
+      "others": [],
+      "parses": []
+    }
+  ]
+}

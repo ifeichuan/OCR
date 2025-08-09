@@ -91,7 +91,10 @@
             </div>
             <div class="flex items-center gap-2">
               <el-tag size="small" type="info" effect="plain">
-                {{ PDFStore.annotations.filter((a) => a.pageNumber === pageNum).length }} 个标注
+                {{
+                  AnnotationStore.annotations.filter((a: any) => a.pageNumber === pageNum).length
+                }}
+                个标注
               </el-tag>
             </div>
           </div>
@@ -270,7 +273,7 @@
 
 <script setup lang="ts">
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
-import { PDFStore } from '@/main'
+import { PDFStore, AnnotationStore } from '@/main'
 import {
   ElButton,
   ElInputNumber,
@@ -296,7 +299,7 @@ import {
   Refresh,
   Key,
 } from '@element-plus/icons-vue'
-import type { AnnotationType } from '@/stores/PDFStore'
+import type { AnnotationType } from '@/stores/AnnotationStore'
 import { watch, computed, onMounted } from 'vue'
 import AnnotationList from '@/components/AnnotationList.vue'
 
