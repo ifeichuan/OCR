@@ -14,6 +14,27 @@
             上传PDF文件
           </el-button>
 
+          <el-button
+            type="success"
+            size="default"
+            @click="triggerImport"
+            class="w-full"
+            :loading="importLoading"
+            :disabled="PDFStore.totalPages === 0"
+          >
+            <el-icon class="mr-2"><Download /></el-icon>
+            导入标注数据
+          </el-button>
+
+          <!-- 隐藏的文件输入 -->
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept=".json"
+            style="display: none"
+            @change="handleFileSelect"
+          />
+
           <!-- 缩放控制区域 -->
           <div class="space-y-2">
             <div class="flex items-center gap-2">
@@ -278,6 +299,7 @@ import {
   ElButton,
   ElInputNumber,
   ElMessage,
+  ElMessageBox,
   ElPopover,
   ElEmpty,
   ElTag,
@@ -300,10 +322,100 @@ import {
   Key,
 } from '@element-plus/icons-vue'
 import type { AnnotationType } from '@/stores/AnnotationStore'
-import { watch, computed, onMounted } from 'vue'
+import { watch, computed, onMounted, ref } from 'vue'
 import AnnotationList from '@/components/AnnotationList.vue'
 
 useKeyboardShortcuts()
+
+// 导入相关状态
+const fileInputRef = ref<HTMLInputElement>()
+const importLoading = ref(false)
+
+// 导入功能
+const triggerImport = () => {
+  fileInputRef.value?.click()
+}
+
+const handleFileSelect = async (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  if (!file.name.endsWith('.json')) {
+    ElMessage.error('请选择JSON格式的文件')
+    return
+  }
+
+  importLoading.value = true
+
+  try {
+    const fileContent = await readFileAsText(file)
+    const importData = JSON.parse(fileContent)
+
+    // 验证数据格式
+    const validation = AnnotationStore.validateImportData(importData)
+    if (!validation.valid) {
+      ElMessage.error(`数据格式错误: ${validation.message}`)
+      return
+    }
+
+    // 询问用户是否清空现有数据
+    const shouldClear = await ElMessageBox.confirm(
+      '是否清空现有标注数据？选择"确定"将清空现有数据，选择"取消"将追加到现有数据中。',
+      '导入选项',
+      {
+        confirmButtonText: '清空并导入',
+        cancelButtonText: '追加导入',
+        type: 'warning',
+      },
+    )
+      .then(() => true)
+      .catch(() => false)
+
+    // 执行导入
+    const result = AnnotationStore.importAnnotations(importData, shouldClear)
+
+    if (result.success) {
+      ElMessage.success(result.message)
+
+      // 重新绘制所有页面的标注
+      const pageNumbers = new Set(AnnotationStore.annotations.map((a: any) => a.pageNumber))
+      pageNumbers.forEach((pageNum) => {
+        PDFStore.drawPageAnnotations(pageNum)
+      })
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+    if (error instanceof SyntaxError) {
+      ElMessage.error('JSON文件格式错误，请检查文件内容')
+    } else {
+      ElMessage.error('导入失败，请重试')
+    }
+  } finally {
+    importLoading.value = false
+    // 清空文件输入
+    if (fileInputRef.value) {
+      fileInputRef.value.value = ''
+    }
+  }
+}
+
+// 读取文件内容
+const readFileAsText = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      resolve(e.target?.result as string)
+    }
+    reader.onerror = () => {
+      reject(new Error('文件读取失败'))
+    }
+    reader.readAsText(file, 'utf-8')
+  })
+}
 
 // 创建虚拟引用用于 Popover 定位
 const toolbarVirtualRef = computed(() => ({
@@ -373,7 +485,7 @@ const loadPDFFromURL = async (url: string, Urlparams: URLSearchParams) => {
 }
 
 // 组件挂载时检查URL参数
-onMounted(() => {
+onMounted(async () => {
   const urlParams = new URLSearchParams(window.location.search)
   const fileUrl = urlParams.get('file_url')
   const companyId = urlParams.get('company_id')
@@ -390,7 +502,28 @@ onMounted(() => {
     }
 
     // 加载PDF文件
-    loadPDFFromURL(fileUrl, urlParams)
+    await loadPDFFromURL(fileUrl, urlParams)
+
+    // PDF加载完成后，自动从API导入标注数据
+    try {
+      ElMessage.info('正在从API导入标注数据...')
+      const result = await AnnotationStore.importFromAPI()
+
+      if (result.success) {
+        ElMessage.success('标注数据导入成功')
+
+        // 重新绘制所有页面的标注
+        const pageNumbers = new Set(AnnotationStore.annotations.map((a: any) => a.pageNumber))
+        pageNumbers.forEach((pageNum) => {
+          PDFStore.drawPageAnnotations(pageNum)
+        })
+      } else {
+        ElMessage.warning(`标注数据导入失败: ${result.message}`)
+      }
+    } catch (error) {
+      console.error('自动导入标注数据失败:', error)
+      ElMessage.error('自动导入标注数据失败')
+    }
   }
 })
 

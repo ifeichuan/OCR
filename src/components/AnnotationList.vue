@@ -9,9 +9,25 @@
       </div>
 
       <div class="flex flex-col gap-2 mb-4">
-        <el-button size="small" type="success" @click="exportToQuestionBank" class="action-btn">
+        <el-button
+          size="small"
+          type="success"
+          @click="exportToAPI"
+          class="action-btn"
+          :loading="exportLoading"
+        >
           <el-icon class="mr-1"><Download /></el-icon>
-          导出题库
+          导出到API
+        </el-button>
+        <el-button
+          size="small"
+          type="primary"
+          @click="importFromAPI"
+          class="action-btn"
+          :loading="importLoading"
+        >
+          <el-icon class="mr-1"><Upload /></el-icon>
+          从API导入
         </el-button>
         <el-button
           size="small"
@@ -85,16 +101,28 @@
               </el-tag>
             </div>
           </div>
-          <el-button
-            size="small"
-            type="danger"
-            plain
-            @click="deleteGroup(group.id)"
-            class="delete-group-btn"
-          >
-            <el-icon class="mr-1"><Delete /></el-icon>
-            删除组
-          </el-button>
+          <div class="flex gap-2">
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              @click="showAddToGroupDialog(group.id)"
+              class="add-to-group-btn"
+            >
+              <el-icon class="mr-1"><Plus /></el-icon>
+              添加标记
+            </el-button>
+            <el-button
+              size="small"
+              type="danger"
+              plain
+              @click="deleteGroup(group.id)"
+              class="delete-group-btn"
+            >
+              <el-icon class="mr-1"><Delete /></el-icon>
+              删除组
+            </el-button>
+          </div>
         </div>
 
         <div class="group-content">
@@ -152,15 +180,89 @@
         </div>
       </div>
     </div>
+
+    <!-- 添加标记到分组的对话框 -->
+    <el-dialog
+      v-model="showAddToGroupDialogVisible"
+      title="添加标记到分组"
+      width="500px"
+      :before-close="handleAddToGroupDialogClose"
+    >
+      <div v-if="availableAnnotations.length > 0">
+        <div class="mb-4">
+          <span class="text-sm text-gray-600">选择要添加到分组的标记：</span>
+        </div>
+        <div class="max-h-60 overflow-y-auto space-y-2">
+          <div
+            v-for="annotation in availableAnnotations"
+            :key="annotation.id"
+            class="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
+            :class="{
+              'bg-blue-50 border-blue-300': selectedAnnotationsForGroup.has(annotation.id),
+            }"
+            @click="toggleAnnotationForGroup(annotation.id)"
+          >
+            <el-checkbox
+              :model-value="selectedAnnotationsForGroup.has(annotation.id)"
+              @change="toggleAnnotationForGroup(annotation.id)"
+              class="mr-3"
+            />
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <el-tag :type="getAnnotationTypeColor(annotation.type)" size="small">
+                  {{ annotation.type }}
+                </el-tag>
+                <span class="text-xs text-gray-500">第{{ annotation.pageNumber }}页</span>
+              </div>
+              <div class="text-sm text-gray-700 truncate">{{ annotation.label }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div v-else class="text-center py-8">
+        <el-icon size="48" color="#C0C4CC"><Files /></el-icon>
+        <p class="text-gray-500 mt-2">暂无可添加的标记</p>
+        <p class="text-xs text-gray-400">所有标记都已分组</p>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500">
+            已选择 {{ selectedAnnotationsForGroup.size }} 个标记
+          </span>
+          <div class="flex gap-2">
+            <el-button @click="handleAddToGroupDialogClose">取消</el-button>
+            <el-button
+              type="primary"
+              @click="confirmAddToGroup"
+              :disabled="selectedAnnotationsForGroup.size === 0"
+            >
+              确定添加
+            </el-button>
+          </div>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { ElButton, ElInput, ElMessage, ElMessageBox, ElIcon, ElBadge, ElTag } from 'element-plus'
+import {
+  ElButton,
+  ElInput,
+  ElMessage,
+  ElMessageBox,
+  ElIcon,
+  ElBadge,
+  ElTag,
+  ElDialog,
+  ElCheckbox,
+} from 'element-plus'
 import {
   Collection,
   Download,
+  Upload,
   Connection,
   Close,
   Edit,
@@ -178,6 +280,122 @@ const annotationStore = AnnotationStore
 
 // 编组相关状态
 const groupName = ref('')
+
+// API相关状态
+const importLoading = ref(false)
+const exportLoading = ref(false)
+
+// 从API导入数据
+const importFromAPI = async () => {
+  importLoading.value = true
+
+  try {
+    const result = await annotationStore.importFromAPI()
+
+    if (result.success) {
+      ElMessage.success(result.message)
+
+      // 重新绘制所有页面的标注
+      const pageNumbers = new Set(annotationStore.annotations.map((a: any) => a.pageNumber))
+      pageNumbers.forEach((pageNum) => {
+        PDFStore.drawPageAnnotations(pageNum)
+      })
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    console.error('API导入失败:', error)
+    ElMessage.error('API导入失败，请重试')
+  } finally {
+    importLoading.value = false
+  }
+}
+
+// 导出数据到API
+const exportToAPI = async () => {
+  if (annotationStore.annotations.length === 0) {
+    ElMessage.warning('没有标注数据可导出')
+    return
+  }
+
+  exportLoading.value = true
+
+  try {
+    const result = await annotationStore.exportToAPI()
+
+    if (result.success) {
+      ElMessage.success(result.message)
+    } else {
+      ElMessage.error(result.message)
+    }
+  } catch (error) {
+    console.error('API导出失败:', error)
+    ElMessage.error('API导出失败，请重试')
+  } finally {
+    exportLoading.value = false
+  }
+}
+
+// 添加标记到分组的相关状态
+const showAddToGroupDialogVisible = ref(false)
+const currentGroupId = ref('')
+const selectedAnnotationsForGroup = ref<Set<string>>(new Set())
+const availableAnnotations = computed(() => {
+  return annotationStore.getAvailableAnnotationsForGroup()
+})
+
+// 添加标记到分组的功能
+const showAddToGroupDialog = (groupId: string) => {
+  currentGroupId.value = groupId
+  selectedAnnotationsForGroup.value.clear()
+  showAddToGroupDialogVisible.value = true
+}
+
+const toggleAnnotationForGroup = (annotationId: string) => {
+  if (selectedAnnotationsForGroup.value.has(annotationId)) {
+    selectedAnnotationsForGroup.value.delete(annotationId)
+  } else {
+    selectedAnnotationsForGroup.value.add(annotationId)
+  }
+}
+
+const confirmAddToGroup = () => {
+  if (selectedAnnotationsForGroup.value.size === 0) {
+    ElMessage.error('请选择要添加的标记!')
+    return
+  }
+
+  const success = annotationStore.addToGroup(
+    currentGroupId.value,
+    Array.from(selectedAnnotationsForGroup.value),
+  )
+
+  if (success) {
+    ElMessage.success(`成功添加 ${selectedAnnotationsForGroup.value.size} 个标记到分组`)
+    showAddToGroupDialogVisible.value = false
+    selectedAnnotationsForGroup.value.clear()
+  } else {
+    ElMessage.error('添加标记到分组失败')
+  }
+}
+
+const handleAddToGroupDialogClose = () => {
+  selectedAnnotationsForGroup.value.clear()
+  showAddToGroupDialogVisible.value = false
+}
+
+const getAnnotationTypeColor = (type: AnnotationType) => {
+  switch (type.replace('的图片', '')) {
+    case '问题':
+      return 'primary'
+    case '选项':
+      return 'success'
+    case '答案':
+      return 'warning'
+    case '解析':
+      return 'info'
+  }
+}
 
 // 计算属性：获取未分组的标注
 const ungroupedAnnotations = computed(() => {
@@ -345,7 +563,17 @@ const buildQuestionStructure = (groupAnnotations: Annotation[]) => {
       pageNumber: item.text.pageNumber,
       rectangle: item.text.rectangle,
       relativeRectangle: item.text.relativeRectangle,
-      images: item.images.length > 0 ? item.images.map(() => '暂未完成') : [],
+      createdAt: item.text.createdAt,
+      type: item.text.type,
+      images: item.images.map((img: Annotation) => ({
+        id: img.id,
+        text: img.label,
+        pageNumber: img.pageNumber,
+        rectangle: img.rectangle,
+        relativeRectangle: img.relativeRectangle,
+        createdAt: img.createdAt,
+        type: img.type,
+      })),
     }))
   }
 
