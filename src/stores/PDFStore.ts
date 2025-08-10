@@ -335,15 +335,15 @@ export const usePDFStore = defineStore('PDF', () => {
   }
 
   function handleMouseDown(e: MouseEvent, pageNum: number) {
-    console.log('🖱️ VirtualPDF 鼠标按下事件触发!', {
-      pageNumber: pageNum,
-      target: e.target,
-    })
+    // console.log('🖱️ VirtualPDF 鼠标按下事件触发!', {
+    //   pageNumber: pageNum,
+    //   target: e.target,
+    // })
 
-    if (e.button !== 0) {
-      console.log('❌ 不是左键，忽略')
-      return
-    }
+    // if (e.button !== 0) {
+    //   console.log('❌ 不是左键，忽略')
+    //   return
+    // }
 
     const canvas = annotationCanvases.value.get(pageNum)
     if (!canvas) {
@@ -397,15 +397,15 @@ export const usePDFStore = defineStore('PDF', () => {
     // 记录当前绘制的页面
     pendingAnnotation.value = { rect: canvasState.value.currentRect, pageInfo }
 
-    console.log('✅ 开始绘制新标注，起始点:', point)
+    // console.log('✅ 开始绘制新标注，起始点:', point)
     drawPageAnnotations(pageNum)
   }
 
   function handleMouseMove(e: MouseEvent, pageNum: number) {
-    console.log('🖱️ VirtualPDF 鼠标移动事件触发!', {
-      isDrawing: canvasState.value.isDrawing,
-      pageNumber: pageNum,
-    })
+    // console.log('🖱️ VirtualPDF 鼠标移动事件触发!', {
+    //   isDrawing: canvasState.value.isDrawing,
+    //   pageNumber: pageNum,
+    // })
 
     if (!canvasState.value.isDrawing || !canvasState.value.startPoint) {
       console.log('❌ 不在绘制状态或没有起始点')
